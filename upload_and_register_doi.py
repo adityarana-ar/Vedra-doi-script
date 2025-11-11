@@ -198,18 +198,23 @@ def validate_required_fields(row: pd.Series, file_name: str) -> Tuple[bool, List
     ):
         missing_fields.append("publication_date")
 
-    # Required for published DOIs: publisher (or thesis_university for dissertations)
+    # Required for published DOIs: publisher (or awarding_institution as fallback)
     has_publisher = False
     if pd.notna(row.get("publisher")) and str(row.get("publisher", "")).strip():
         has_publisher = True
-    elif (
-        pd.notna(row.get("thesis_university"))
-        and str(row.get("thesis_university", "")).strip()
-    ):
-        has_publisher = True  # Can use thesis_university as fallback
+    else:
+        # Check for awarding_institution as fallback
+        for field_name in [
+            "awarding_institution",
+            "awarding_institution_name",
+            "awardingInstitution",
+        ]:
+            if pd.notna(row.get(field_name)) and str(row.get(field_name, "")).strip():
+                has_publisher = True
+                break
 
     if not has_publisher:
-        missing_fields.append("publisher (or thesis_university for dissertations)")
+        missing_fields.append("publisher (or awarding_institution as fallback)")
 
     # Required: resource_type
     if (
@@ -364,8 +369,8 @@ def map_csv_to_datacite_schema(row: pd.Series, s3_url: str) -> Dict[str, Any]:
 
     # Build publisher
     publisher = None
-    if pd.notna(row.get("publisher")):
-        publisher = str(row["publisher"])
+    if pd.notna(row.get("publisher")) and str(row.get("publisher", "")).strip():
+        publisher = str(row["publisher"]).strip()
 
     # Build DataCite JSON structure
     # Include "event": "publish" to create published DOIs (tested and working)
@@ -412,18 +417,29 @@ def map_csv_to_datacite_schema(row: pd.Series, s3_url: str) -> Dict[str, Any]:
 
     # Publisher is REQUIRED for published DOIs (when event is "publish")
     if not publisher and attributes.get("event") == "publish":
-        # Try to use thesis_university as publisher for dissertations
-        if pd.notna(row.get("thesis_university")):
-            publisher = str(row["thesis_university"]).strip()
+        # Try to use awarding_institution as publisher fallback
+        awarding_institution = None
+        # Check for various possible field names
+        for field_name in [
+            "awarding_institution",
+            "awarding_institution_name",
+            "awardingInstitution",
+        ]:
+            if pd.notna(row.get(field_name)) and str(row.get(field_name, "")).strip():
+                awarding_institution = str(row[field_name]).strip()
+                break
+
+        if awarding_institution:
+            publisher = awarding_institution
             logger.warning(
-                f"Publisher field is empty. Using thesis_university as publisher: {publisher}"
+                f"Publisher field is empty. Using awarding_institution as publisher: {publisher}"
             )
         else:
             logger.error(
                 "ERROR: 'publisher' field is required for published DOIs but is missing in CSV."
             )
             logger.error(
-                "Please add a publisher value to your CSV, or use thesis_university for dissertations."
+                "Please add a publisher value to your CSV, or add an 'awarding_institution' field as a fallback."
             )
             raise ValueError("Missing required 'publisher' field for published DOI")
 

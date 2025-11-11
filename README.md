@@ -82,7 +82,7 @@ These fields are **required** and the script will validate them before attemptin
 - **`publication_date`** - Publication date (must contain a valid year, e.g., "2022-07-30" or "30-Jul-2022")
 - **`creator_1_name`** - At least one creator name is required
 - **`publisher`** - Publisher name (required for published DOIs)
-  - **OR** `thesis_university` - For dissertations, this can be used as publisher if `publisher` is empty
+  - **OR** `awarding_institution` - Can be used as publisher fallback if `publisher` is empty
 - **`file_name`** - Name of file in `/data` directory
 
 ### Optional Fields
@@ -123,7 +123,7 @@ The script includes comprehensive validation and error handling:
 
 The script validates all required fields **before** attempting to create a DOI:
 
-- Checks for missing required fields (title_main, creator_1_name, publication_date, publisher/thesis_university, resource_type)
+- Checks for missing required fields (title_main, creator_1_name, publication_date, publisher/awarding_institution, resource_type)
 - Validates that publication_date contains a valid year
 - Ensures at least one creator is present
 - Provides clear error messages listing all missing fields
